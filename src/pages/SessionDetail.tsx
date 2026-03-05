@@ -14,7 +14,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { SessionStatusBadge } from "@/components/sessions/SessionStatusBadge";
+import {
+  Label,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
+} from "recharts";
 import {
   getSessionById,
   getPlayerById,
@@ -135,6 +143,57 @@ function StatusActions({
   }
 }
 
+const chartConfig = {
+  confirmed: {
+    label: "Confirmed",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
+
+function ConfirmedChart({ confirmed, max }: { confirmed: number; max: number }) {
+  const endAngle = (confirmed / max) * 360;
+  const chartData = [{ name: "confirmed", value: confirmed, fill: "var(--color-confirmed)" }];
+
+  return (
+    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[140px]">
+      <RadialBarChart
+        data={chartData}
+        startAngle={0}
+        endAngle={endAngle}
+        innerRadius={50}
+        outerRadius={70}
+      >
+        <PolarGrid
+          gridType="circle"
+          radialLines={false}
+          stroke="none"
+          className="first:fill-muted last:fill-background"
+          polarRadius={[55, 45]}
+        />
+        <RadialBar dataKey="value" background cornerRadius={10} />
+        <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+          <Label
+            content={({ viewBox }) => {
+              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                return (
+                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                      {confirmed}/{max}
+                    </tspan>
+                    <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 18} className="fill-muted-foreground text-xs">
+                      players
+                    </tspan>
+                  </text>
+                );
+              }
+            }}
+          />
+        </PolarRadiusAxis>
+      </RadialBarChart>
+    </ChartContainer>
+  );
+}
+
 function EditionTab({
   session,
   status,
@@ -151,7 +210,6 @@ function EditionTab({
   const confirmed = session.registrations.filter((r) => r.status === "confirmed");
   const waitlist = session.registrations.filter((r) => r.status === "waitlist");
   const spotsLeft = session.maxPlayers - confirmed.length;
-  const fillPercent = (confirmed.length / session.maxPlayers) * 100;
   const courtNames = session.courtIds
     .map((cid) => courts.find((c) => c.id === cid)?.name ?? cid)
     .join(", ");
@@ -174,31 +232,6 @@ function EditionTab({
           <MapPin className="h-3.5 w-3.5" />
           {courtNames}
         </span>
-        <span className="flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" />
-          {confirmed.length}/{session.maxPlayers} players
-        </span>
-      </div>
-
-      {/* Player count bar */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{confirmed.length}/{session.maxPlayers} confirmed</span>
-          {status === "OPEN" && spotsLeft > 0 && (
-            <span className="text-xs font-medium text-amber-600">
-              {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
-            </span>
-          )}
-          {status === "IN_PROGRESS" && (
-            <span className="text-xs font-medium text-green-600">Live</span>
-          )}
-        </div>
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-foreground transition-all"
-            style={{ width: `${fillPercent}%` }}
-          />
-        </div>
       </div>
 
       {/* Status actions */}
@@ -218,72 +251,102 @@ function EditionTab({
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Players */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center justify-between">
-              <span>Players ({confirmed.length}/{session.maxPlayers})</span>
+      {/* Combined Players + Chart card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center justify-between">
+            <span>Players</span>
+            <div className="flex items-center gap-2">
+              {status === "OPEN" && spotsLeft > 0 && (
+                <span className="text-xs font-medium text-amber-600">
+                  {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
+                </span>
+              )}
+              {status === "IN_PROGRESS" && (
+                <span className="text-xs font-medium text-green-600">Live</span>
+              )}
               {waitlist.length > 0 && (
                 <Badge variant="secondary">{waitlist.length} waitlisted</Badge>
               )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {confirmed.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No players registered yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {confirmed.map((reg) => {
-                  const player = getPlayerById(reg.playerId);
-                  if (!player) return null;
-                  const checked = isCheckedIn(reg);
-                  return (
-                    <div key={reg.playerId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
-                      <div className="flex items-center gap-3">
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex gap-6">
+            {/* Radial chart */}
+            <div className="shrink-0 flex flex-col items-center">
+              <ConfirmedChart confirmed={confirmed.length} max={session.maxPlayers} />
+            </div>
+
+            {/* Player list */}
+            <div className="flex-1 min-w-0">
+              {confirmed.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No players registered yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {confirmed.map((reg) => {
+                    const player = getPlayerById(reg.playerId);
+                    if (!player) return null;
+                    const checked = isCheckedIn(reg);
+                    return (
+                      <div key={reg.playerId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          {status === "IN_PROGRESS" && (
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleCheckIn(reg.playerId)}
+                            />
+                          )}
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-[10px]">
+                              {player.name.split(" ").map((n) => n[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{player.name}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{player.level}</p>
+                          </div>
+                        </div>
                         {status === "IN_PROGRESS" && (
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={() => toggleCheckIn(reg.playerId)}
-                          />
+                          <Badge variant={checked ? "default" : "secondary"} className="text-xs">
+                            {checked ? "Checked In" : "Pending"}
+                          </Badge>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {waitlist.length > 0 && (
+                <>
+                  <Separator className="my-2" />
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Waitlist</p>
+                  {waitlist.map((reg) => {
+                    const player = getPlayerById(reg.playerId);
+                    if (!player) return null;
+                    return (
+                      <div key={reg.playerId} className="flex items-center gap-3 p-2">
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="text-[10px]">
+                            {player.name.split(" ").map((n) => n[0]).join("")}
+                          </AvatarFallback>
+                        </Avatar>
                         <div>
-                          <p className="text-sm font-medium">{player.name}</p>
+                          <p className="text-sm">{player.name}</p>
                           <p className="text-xs text-muted-foreground capitalize">{player.level}</p>
                         </div>
                       </div>
-                      {status === "IN_PROGRESS" && (
-                        <Badge variant={checked ? "default" : "secondary"} className="text-xs">
-                          {checked ? "Checked In" : "Pending"}
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            {waitlist.length > 0 && (
-              <>
-                <Separator className="my-3" />
-                <p className="text-xs font-medium text-muted-foreground mb-2">Waitlist</p>
-                {waitlist.map((reg) => {
-                  const player = getPlayerById(reg.playerId);
-                  if (!player) return null;
-                  return (
-                    <div key={reg.playerId} className="flex items-center gap-3 p-2">
-                      <div>
-                        <p className="text-sm">{player.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{player.level}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Scores */}
         {session.scores.length > 0 && (
           <Card>
