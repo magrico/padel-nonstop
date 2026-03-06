@@ -155,33 +155,30 @@ function ConfirmedChart({ confirmed, max }: { confirmed: number; max: number }) 
   const chartData = [{ name: "confirmed", value: confirmed, fill: "var(--color-confirmed)" }];
 
   return (
-    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[140px]">
+    <ChartContainer config={chartConfig} className="aspect-square h-[60px]">
       <RadialBarChart
         data={chartData}
         startAngle={0}
         endAngle={endAngle}
-        innerRadius={50}
-        outerRadius={70}
+        innerRadius={22}
+        outerRadius={30}
       >
         <PolarGrid
           gridType="circle"
           radialLines={false}
           stroke="none"
           className="first:fill-muted last:fill-background"
-          polarRadius={[55, 45]}
+          polarRadius={[24, 20]}
         />
-        <RadialBar dataKey="value" background cornerRadius={10} />
+        <RadialBar dataKey="value" background cornerRadius={6} />
         <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
           <Label
             content={({ viewBox }) => {
               if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                 return (
                   <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-[10px] font-bold">
                       {confirmed}/{max}
-                    </tspan>
-                    <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 18} className="fill-muted-foreground text-xs">
-                      players
                     </tspan>
                   </text>
                 );
@@ -209,6 +206,7 @@ function EditionTab({
 }) {
   const confirmed = session.registrations.filter((r) => r.status === "confirmed");
   const waitlist = session.registrations.filter((r) => r.status === "waitlist");
+  const dropouts = session.registrations.filter((r) => r.status === "cancelled");
   const spotsLeft = session.maxPlayers - confirmed.length;
   const courtNames = session.courtIds
     .map((cid) => courts.find((c) => c.id === cid)?.name ?? cid)
@@ -251,100 +249,163 @@ function EditionTab({
         </Card>
       )}
 
-      {/* Combined Players + Chart card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center justify-between">
-            <span>Players</span>
-            <div className="flex items-center gap-2">
-              {status === "OPEN" && spotsLeft > 0 && (
-                <span className="text-xs font-medium text-amber-600">
-                  {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
-                </span>
-              )}
-              {status === "IN_PROGRESS" && (
-                <span className="text-xs font-medium text-green-600">Live</span>
-              )}
-              {waitlist.length > 0 && (
-                <Badge variant="secondary">{waitlist.length} waitlisted</Badge>
-              )}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex gap-6">
-            {/* Radial chart */}
-            <div className="shrink-0 flex flex-col items-center">
-              <ConfirmedChart confirmed={confirmed.length} max={session.maxPlayers} />
-            </div>
-
-            {/* Player list */}
-            <div className="flex-1 min-w-0">
-              {confirmed.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No players registered yet.</p>
-              ) : (
-                <div className="space-y-1">
-                  {confirmed.map((reg) => {
-                    const player = getPlayerById(reg.playerId);
-                    if (!player) return null;
-                    const checked = isCheckedIn(reg);
-                    return (
-                      <div key={reg.playerId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          {status === "IN_PROGRESS" && (
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={() => toggleCheckIn(reg.playerId)}
-                            />
-                          )}
-                          <Avatar className="h-7 w-7">
-                            <AvatarFallback className="text-[10px]">
-                              {player.name.split(" ").map((n) => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">{player.name}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{player.level}</p>
-                          </div>
-                        </div>
-                        {status === "IN_PROGRESS" && (
-                          <Badge variant={checked ? "default" : "secondary"} className="text-xs">
-                            {checked ? "Checked In" : "Pending"}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {waitlist.length > 0 && (
-                <>
-                  <Separator className="my-2" />
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Waitlist</p>
-                  {waitlist.map((reg) => {
-                    const player = getPlayerById(reg.playerId);
-                    if (!player) return null;
-                    return (
-                      <div key={reg.playerId} className="flex items-center gap-3 p-2">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="text-[10px]">
-                            {player.name.split(" ").map((n) => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm">{player.name}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{player.level}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-            </div>
+      {/* Stats bar */}
+      <div className="flex items-center gap-6 rounded-lg border bg-muted/30 px-5 py-3">
+        <div className="flex items-center gap-3">
+          <ConfirmedChart confirmed={confirmed.length} max={session.maxPlayers} />
+        </div>
+        <Separator orientation="vertical" className="h-8" />
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-bold">{confirmed.length}</span>
+          <span className="text-sm text-muted-foreground">Confirmed</span>
+        </div>
+        <Separator orientation="vertical" className="h-8" />
+        {status === "OPEN" && spotsLeft > 0 ? (
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-amber-600">{spotsLeft}</span>
+            <span className="text-sm text-muted-foreground">{spotsLeft === 1 ? "Spot" : "Spots"} left</span>
           </div>
-        </CardContent>
-      </Card>
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">{session.maxPlayers}</span>
+            <span className="text-sm text-muted-foreground">Max players</span>
+          </div>
+        )}
+        {waitlist.length > 0 && (
+          <>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold">{waitlist.length}</span>
+              <span className="text-sm text-muted-foreground">Waitlisted</span>
+            </div>
+          </>
+        )}
+        {dropouts.length > 0 && (
+          <>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-red-500">{dropouts.length}</span>
+              <span className="text-sm text-muted-foreground">Dropouts</span>
+            </div>
+          </>
+        )}
+        {status === "IN_PROGRESS" && (
+          <>
+            <Separator orientation="vertical" className="h-8" />
+            <Badge className="bg-green-600 text-white">Live</Badge>
+          </>
+        )}
+      </div>
+
+      {/* Player table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {status === "IN_PROGRESS" && <TableHead className="w-[50px]" />}
+              <TableHead>Player</TableHead>
+              <TableHead>Points</TableHead>
+              <TableHead>Status</TableHead>
+              {status === "IN_PROGRESS" && <TableHead>Check-in</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {confirmed.map((reg) => {
+              const player = getPlayerById(reg.playerId);
+              if (!player) return null;
+              const checked = isCheckedIn(reg);
+              return (
+                <TableRow key={reg.playerId}>
+                  {status === "IN_PROGRESS" && (
+                    <TableCell>
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleCheckIn(reg.playerId)}
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[10px]">
+                          {player.name.split(" ").map((n) => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{player.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{leaderboard.find((e) => e.playerId === reg.playerId)?.points ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-xs">Confirmed</Badge>
+                  </TableCell>
+                  {status === "IN_PROGRESS" && (
+                    <TableCell>
+                      <Badge variant={checked ? "default" : "secondary"} className="text-xs">
+                        {checked ? "Checked In" : "Pending"}
+                      </Badge>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+            {waitlist.map((reg) => {
+              const player = getPlayerById(reg.playerId);
+              if (!player) return null;
+              return (
+                <TableRow key={reg.playerId}>
+                  {status === "IN_PROGRESS" && <TableCell />}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[10px]">
+                          {player.name.split(" ").map((n) => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{player.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{leaderboard.find((e) => e.playerId === reg.playerId)?.points ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">Waitlisted</Badge>
+                  </TableCell>
+                  {status === "IN_PROGRESS" && <TableCell />}
+                </TableRow>
+              );
+            })}
+            {dropouts.map((reg) => {
+              const player = getPlayerById(reg.playerId);
+              if (!player) return null;
+              return (
+                <TableRow key={reg.playerId} className="opacity-50">
+                  {status === "IN_PROGRESS" && <TableCell />}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[10px]">
+                          {player.name.split(" ").map((n) => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="line-through">{player.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{leaderboard.find((e) => e.playerId === reg.playerId)?.points ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs text-red-500 border-red-200">Dropout</Badge>
+                  </TableCell>
+                  {status === "IN_PROGRESS" && <TableCell />}
+                </TableRow>
+              );
+            })}
+            {confirmed.length === 0 && waitlist.length === 0 && dropouts.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={status === "IN_PROGRESS" ? 5 : 3} className="text-center py-8 text-muted-foreground">
+                  No players registered yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Scores */}
@@ -603,21 +664,18 @@ export default function SessionDetail() {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 border-b">
+      <div className="flex items-center gap-2">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm transition-colors relative ${
+            className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
               activeTab === tab.key
-                ? "text-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-foreground text-background font-medium"
+                : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
             }`}
           >
             {tab.label}
-            {activeTab === tab.key && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-            )}
           </button>
         ))}
       </div>

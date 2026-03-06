@@ -93,6 +93,8 @@ export const sessions: Session[] = [
       { playerId: "p-5", sessionId: "ed-1", status: "confirmed", checkedIn: false, registeredAt: "2026-03-03T08:00:00" },
       { playerId: "p-6", sessionId: "ed-1", status: "confirmed", checkedIn: false, registeredAt: "2026-03-03T09:00:00" },
       { playerId: "p-9", sessionId: "ed-1", status: "confirmed", checkedIn: false, registeredAt: "2026-03-03T14:00:00" },
+      { playerId: "p-2", sessionId: "ed-1", status: "cancelled", checkedIn: false, registeredAt: "2026-03-02T11:00:00" },
+      { playerId: "p-8", sessionId: "ed-1", status: "cancelled", checkedIn: false, registeredAt: "2026-03-03T10:00:00" },
     ],
     scores: [],
   },
